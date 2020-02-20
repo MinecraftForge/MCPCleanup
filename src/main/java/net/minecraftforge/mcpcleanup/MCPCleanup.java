@@ -59,7 +59,6 @@ public class MCPCleanup {
         OptParser options = new OptParser(formatter);
         for (String opt : new String[] {
             "style=allman",
-            "add-brackets",
             "break-closing-brackets",
             "indent-switches",
             "max-instatement-indent=40",
