@@ -30,19 +30,24 @@ public class ConsoleTool {
         OptionParser parser = new OptionParser();
         OptionSpec<File> inputO = parser.accepts("input").withRequiredArg().ofType(File.class).required();
         OptionSpec<File> outputO = parser.accepts("output").withRequiredArg().ofType(File.class).required();
+        OptionSpec<Void> filterFMLO = parser.accepts("filter-fml", "Filter out net.minecraftforge and cpw.mods.fml package, in the cases where we inject the Side annotations.");
 
         try {
             OptionSet options = parser.parse(args);
 
             File input = options.valueOf(inputO);
             File output  = options.valueOf(outputO);
+            boolean filterFML = options.has(filterFMLO);
 
             log("MCPCleanup: ");
-            log("  Input:    " + input);
-            log("  Output:   " + output);
+            log("  Input:     " + input);
+            log("  Output:    " + output);
+            log("  FilterFML: " + filterFML);
 
-            log("Processing: ");
-            MCPCleanup.create(input, output).process();
+            MCPCleanup cleanup = MCPCleanup.create(input, output);
+            if (filterFML)
+                cleanup.filterFML();
+            cleanup.process();
         } catch (OptionException e) {
             parser.printHelpOn(System.out);
             e.printStackTrace();

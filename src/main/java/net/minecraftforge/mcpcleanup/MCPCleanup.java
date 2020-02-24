@@ -47,6 +47,7 @@ public class MCPCleanup {
     private final Set<String> dirs = new HashSet<>();
     private final ASFormatter formatter = new ASFormatter();
     private final GLConstantFixer oglFixer;
+    private boolean filterFML = false;
 
     public static MCPCleanup create(File input, File output) {
         return new MCPCleanup(input, output);
@@ -76,10 +77,15 @@ public class MCPCleanup {
             }
         }
         try {
-			oglFixer = new GLConstantFixer();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+            oglFixer = new GLConstantFixer();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public MCPCleanup filterFML() {
+        this.filterFML = true;
+        return this;
     }
 
     public void process() throws IOException {
@@ -95,15 +101,21 @@ public class MCPCleanup {
 
            ZipEntry entry;
            while ((entry = zinput.getNextEntry()) != null) {
-               if (entry.getName().contains("META-INF") || entry.isDirectory())
+               String name = entry.getName();
+               if (name.contains("META-INF") || entry.isDirectory())
                    continue;
 
-               newZipEntry(entry.getName(), zoutput);
+               if (this.filterFML && (name.startsWith("net/minecraftforge/") || name.startsWith("cpw/mods/fml/"))) {
+                   log("Filtering: " + name);
+                   continue;
+               }
 
-               if (entry.getName().endsWith(".java")) {
+               newZipEntry(name, zoutput);
+
+               if (name.endsWith(".java")) {
                    zoutput.write(processClass(entry.getName(), new String(getBytes(zinput), StandardCharsets.UTF_8)).getBytes());
                } else {
-                   log("  Data  " + entry.getName());
+                   log("Data  " + name);
                    copy(zinput, zoutput);
                }
 
