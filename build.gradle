@@ -25,18 +25,15 @@ license {
     newLine false
 }
 
-final manifestAttributes = [
-        'Main-Class'            : 'net.minecraftforge.mcpcleanup.ConsoleTool',
-        'Implementation-Version': project.version
-]
-
-jar {
-    manifest.attributes(manifestAttributes)
+tasks.withType(Jar).configureEach {
+    manifest.attributes([
+            'Main-Class'            : 'net.minecraftforge.mcpcleanup.ConsoleTool',
+            'Implementation-Version': project.version
+    ])
 }
 
 shadowJar {
     archiveClassifier.set('fatjar')
-    manifest.attributes(manifestAttributes)
 }
 
 java {
@@ -44,12 +41,6 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(8))
     }
-}
-
-artifacts {
-    archives jar
-    archives shadowJar
-    archives sourcesJar
 }
 
 dependencies {
@@ -62,8 +53,6 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-            artifact sourcesJar
-            artifact shadowJar
 
             pom {
                 name = 'MCPCleanup'
