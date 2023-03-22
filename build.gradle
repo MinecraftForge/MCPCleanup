@@ -1,49 +1,49 @@
 plugins {
-  id 'net.minecrell.licenser' version '0.3'
-  id 'org.ajoberstar.grgit' version '2.3.0'
-  id 'com.github.johnrengelman.shadow' version '2.0.4'
+    id 'java'
+    id 'eclipse'
+    id 'maven-publish'
+
+    id 'org.cadixdev.licenser' version '0.6.1'
+    id 'net.minecraftforge.gradleutils' version '2.+'
+    id 'com.github.johnrengelman.shadow' version '8.0.0'
 }
 
-apply plugin: 'maven'
-apply plugin: 'maven-publish'
-apply plugin: 'java'
-apply plugin: 'eclipse'
-
 group = 'net.minecraftforge'
-version = gitVersion()
-targetCompatibility = sourceCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+version = gradleutils.getTagOffsetVersion()
+
+changelog {
+    fromTag '2.3'
+}
 
 repositories {
     mavenCentral()
 }
 
-def gitVersion() {
-    def desc = grgit.describe(longDescr: true).split('-') as List
-    def hash = desc.remove(desc.size() - 1)
-    def offset = desc.remove(desc.size() - 1)
-    def tag = desc.join('-')
-    def branch = grgit.branch.current().name    
-    return "${tag}.${offset}${t -> if (branch != 'master') t << '-' + branch}"
+license {
+    header project.file('LICENSE-header.txt')
+    include 'net/minecraftforge/mcpcleanup/**/*.java'
+    newLine false
 }
 
-license {
-  header project.file('LICENSE-header.txt')
-  include 'net/minecraftforge/mcpcleanup/**/*.java'
-  newLine false
-}
+final manifestAttributes = [
+        'Main-Class'            : 'net.minecraftforge.mcpcleanup.ConsoleTool',
+        'Implementation-Version': project.version
+]
 
 jar {
-    manifest.attributes('Main-Class': 'net.minecraftforge.mcpcleanup.ConsoleTool')
-    manifest.attributes('Implementation-Version': project.version)
+    manifest.attributes(manifestAttributes)
 }
+
 shadowJar {
-    classifier 'fatjar'
-    manifest.attributes('Main-Class': 'net.minecraftforge.mcpcleanup.ConsoleTool')
-    manifest.attributes('Implementation-Version': project.version)
+    archiveClassifier.set('fatjar')
+    manifest.attributes(manifestAttributes)
 }
-task sourcesJar(type: Jar) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
+
+java {
+    withSourcesJar()
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
 }
 
 artifacts {
@@ -66,8 +66,8 @@ publishing {
             artifact shadowJar
 
             pom {
-                name = 'Jar Splitter'
-                description = 'Splits a jar file into classes and data, used in the Forge installer'
+                name = 'MCPCleanup'
+                description = 'Cleans up the decompiled output of MCPConfig'
                 url = 'https://github.com/MinecraftForge/MCPCleanup'
                 scm {
                     url = 'https://github.com/MinecraftForge/MCPCleanup'
@@ -96,16 +96,6 @@ publishing {
         }
     }
     repositories {
-        maven {
-            if (project.hasProperty('forgeMavenPassword')) {
-                credentials {
-                    username project.properties.forgeMavenUser
-                    password project.properties.forgeMavenPassword
-                }
-                url 'http://files.minecraftforge.net/maven/manage/upload'
-            } else {
-                url 'file://' + rootProject.file('repo').getAbsolutePath()
-            }
-        }
+        maven gradleutils.getPublishingForgeMaven()
     }
 }
