@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 public class AbstractParameterRename {
 
     // Definitions of methods must contain both a non-empty parameter list and end with a semicolon.
-    public static final Pattern METHOD_DECLARATION = Pattern.compile("(.*)\\(.+var\\d+.+\\);");
+    public static final Pattern METHOD_DECLARATION = Pattern.compile("(.*)\\(.+var\\d+.*\\);");
 
     // Bear with me here.
     // We need the number from the SRG function, so we read the whole method declaration.
