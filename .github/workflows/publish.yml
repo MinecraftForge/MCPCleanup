@@ -17,7 +17,7 @@ jobs:
     with:
       java: 21
       gradle_tasks: 'check publish'
-      artifact_name: 'slime-launcher'
+      artifact_name: 'mcpcleanup'
     secrets:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       PROMOTE_ARTIFACT_WEBHOOK: ${{ secrets.PROMOTE_ARTIFACT_WEBHOOK }}

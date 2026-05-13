@@ -35,6 +35,11 @@ public class MCPCleanup {
     private final GLConstantFixer oglFixer;
     private boolean filterFML = false;
     private boolean fixParams = false;
+    private boolean fernflower = false;
+    private boolean basic = true;
+    private boolean gl = true;
+    private boolean astyle = true;
+    private boolean fml = false;
 
     public static MCPCleanup create(File input, File output) {
         return new MCPCleanup(input, output);
@@ -71,20 +76,70 @@ public class MCPCleanup {
     }
 
     public MCPCleanup filterFML() {
-        this.filterFML = true;
+        return filterFML(true);
+    }
+    public MCPCleanup filterFML(boolean value) {
+        this.filterFML = value;
         return this;
     }
 
     public MCPCleanup fixParams() {
-        this.fixParams = true;
+        return fixParams(true);
+    }
+    public MCPCleanup fixParams(boolean value) {
+        this.fixParams = value;
+        return this;
+    }
+
+    public MCPCleanup fernflower() {
+        return fernflower(true);
+    }
+    public MCPCleanup fernflower(boolean value) {
+        this.fernflower = value;
+        return this;
+    }
+
+    public MCPCleanup basic() {
+        return basic(true);
+    }
+    public MCPCleanup basic(boolean value) {
+        this.basic = value;
+        return this;
+    }
+
+    public MCPCleanup gl() {
+        return gl(true);
+    }
+    public MCPCleanup gl(boolean value) {
+        this.gl = value;
+        return this;
+    }
+
+    public MCPCleanup astyle() {
+        return astyle(true);
+    }
+    public MCPCleanup astyle(boolean value) {
+        this.astyle = value;
+        return this;
+    }
+
+    public MCPCleanup fml() {
+        return fml(true);
+    }
+    public MCPCleanup fml(boolean value) {
+        this.fml = value;
         return this;
     }
 
     public void process() throws IOException {
         TimeZone.setDefault(TimeZone.getTimeZone("GMT")); //Fix Java stupidity that causes timestamps in zips to depend on user's timezone!
-        if (output.exists() && !output.delete()) throw new IOException("Could not delete file: " + output);
+        if (output.exists() && !output.delete())
+            throw new IOException("Could not delete file: " + output);
         File parent = output.getParentFile();
-        if (!parent.exists() && !parent.mkdirs()) throw new IOException("Could not make parent folders: " + parent);
+        if (parent != null) {
+            if (!parent.exists() && !parent.mkdirs())
+                throw new IOException("Could not make parent folders: " + parent);
+        }
 
         dirs.clear();
 
@@ -118,34 +173,51 @@ public class MCPCleanup {
 
     public String processClass(String name, String file) throws IOException {
         log("Processing file: " + name);
-        file = FFPatcher.processFile(file);
+        if (fernflower) {
+            log("  fernflower cleanup");
+            file = FFPatcher.processFile(file);
+        } else {
+            log("  new lines");
+            file = FFPatcher.processSimple(file);
+        }
 
-        log("  processing comments");
-        file = BasicCleanups.stripComments(file);
+        if (basic) {
+            log("  processing comments");
+            file = BasicCleanups.stripComments(file);
 
-        log("  fixing imports comments");
-        file = BasicCleanups.fixImports(file);
+            log("  fixing imports comments");
+            file = BasicCleanups.fixImports(file);
 
-        log("  various other cleanup");
-        file = BasicCleanups.cleanup(file);
+            log("  various other cleanup");
+            file = BasicCleanups.cleanup(file);
+        }
 
         if (fixParams) {
-            log(" fixing abstract parameter names");
+            log("  fixing abstract parameter names");
             file = AbstractParameterRename.fixAbstractParameters(file);
         }
 
-        log("  fixing OGL constants");
-        file = oglFixer.fixOGL(file);
+        if (gl) {
+            log("  fixing OGL constants");
+            file = oglFixer.fixOGL(file);
+        }
 
-        log("  formatting source");
-        Reader reader = new StringReader(file);
-        Writer writer = new StringWriter();
-        formatter.format(reader, writer);
-        reader.close();
-        writer.flush();
-        writer.close();
+        if (astyle) {
+            log("  formatting source");
+            Reader reader = new StringReader(file);
+            Writer writer = new StringWriter();
+            formatter.format(reader, writer);
+            reader.close();
+            writer.flush();
+            writer.close();
 
-        file = writer.toString();
+            file = writer.toString();
+        }
+
+        if (fml) {
+            log("  FML transformations");
+            file = FmlCleanup.cleanup(file);
+        }
 
         return file;
     }
