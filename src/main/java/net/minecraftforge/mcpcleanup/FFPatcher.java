@@ -39,7 +39,6 @@ public class FFPatcher {
     private static final String CONSTRUCTOR_CALL_REGEX = "(?<name>this|super)\\((?<body>.*?)\\)(?<end>;)";
     private static final String VALUE_FIELD_REGEX = "private static final %s\\[\\] [$\\w\\d]+ = new %s\\[\\]\\{.*?\\};";
 
-
     private static String replaceAll(String text, Pattern pattern, String replacement) {
         return pattern.matcher(text).replaceAll(replacement);
     }
@@ -50,7 +49,7 @@ public class FFPatcher {
         return text;
     }
 
-    public static String processFile(String text) {
+    public static String processFile(String name, String text, boolean enumArgs, boolean enumCtr) {
         StringBuffer out = new StringBuffer();
         Matcher m = SYNTHETICS.matcher(text);
         while(m.find())
@@ -60,7 +59,7 @@ public class FFPatcher {
 
         text = replaceAll(text, TRAILING, "");
         text = replaceAll(text, TRAILINGZERO, "$1$2");
-        text = processClass(text);
+        text = processClass(name, text, enumArgs, enumCtr);
         text = replaceAll(text, NEWLINES, NEWLINE);
         text = replaceAll(text, EMPTY_SUPER, "");
 
@@ -74,13 +73,13 @@ public class FFPatcher {
         return out.toString();
     }
 
-    private static String processClass(String text) {
+    static String processClass(String name, String text, boolean enumArgs, boolean enumCtr) {
         List<String> lines = NewLineDetector.readLines(text);
-        processClass(lines, "", 0, "", ""); // mutates the list
+        processClass(name, lines, "", 0, "", "", enumArgs, enumCtr); // mutates the list
         return String.join(NEWLINE, lines);
     }
 
-    private static int processClass(List<String> lines, String indent, int startIndex, String qualifiedName, String simpleName) {
+    private static int processClass(String name, List<String> lines, String indent, int startIndex, String qualifiedName, String simpleName, boolean enumArgs, boolean enumCtr) {
         Pattern classPattern = Pattern.compile(indent + CLASS_REGEX);
 
         for (int i = startIndex; i < lines.size(); i++) {
@@ -109,10 +108,10 @@ public class FFPatcher {
 
                 // fund an enum class, parse it seperately
                 if (matcher.group("type").equals("enum"))
-                    processEnum(lines, newIndent, i+1, classPath, matcher.group("name"));
+                    processEnum(name, lines, newIndent, i+1, classPath, matcher.group("name"), enumArgs, enumCtr);
 
                 // nested class searching
-                i = processClass(lines, newIndent, i+1, classPath, matcher.group("name"));
+                i = processClass(name, lines, newIndent, i+1, classPath, matcher.group("name"), enumArgs, enumCtr);
             }
 
             // class has finished
@@ -123,13 +122,13 @@ public class FFPatcher {
         return 0;
     }
 
-    private static void processEnum(List<String> lines, String indent, int startIndex, String qualifiedName, String simpleName) {
+    private static void processEnum(String name, List<String> lines, String indent, int startIndex, String qualifiedName, String simpleName, boolean enumArgs, boolean enumCtr) {
         String newIndent = indent + "   ";
-        Pattern enumEntry = Pattern.compile("^" + newIndent + ENUM_ENTRY_REGEX);
-        Pattern constructor = Pattern.compile("^" + newIndent + String.format(CONSTRUCTOR_REGEX, simpleName));
-        Pattern constructorCall = Pattern.compile("^" + newIndent + "   " + CONSTRUCTOR_CALL_REGEX);
+        Pattern enumEntry = Pattern.compile('^' + newIndent + ENUM_ENTRY_REGEX);
+        Pattern constructor = Pattern.compile('^' + newIndent + String.format(CONSTRUCTOR_REGEX, simpleName));
+        Pattern constructorCall = Pattern.compile('^' + newIndent + "   " + CONSTRUCTOR_CALL_REGEX);
         String formatted = newIndent + String.format(VALUE_FIELD_REGEX, qualifiedName, qualifiedName);
-        Pattern valueField = Pattern.compile("^" + formatted);
+        Pattern valueField = Pattern.compile('^' + formatted);
         String newLine;
         boolean prevSynthetic = false;
 
@@ -160,42 +159,42 @@ public class FFPatcher {
                     newLine += "(" + body + ")" + matcher.group("end");
             }
 
-            // find and replace constructor
-            matcher = constructor.matcher(line);
-            if (matcher.find()) {
-                StringBuilder tmp = new StringBuilder();
-                tmp.append(newIndent).append(matcher.group("modifiers")).append(simpleName).append("(");
+            if (enumCtr) {
+                // find and replace constructor
+                matcher = constructor.matcher(line);
 
-                String[] args = matcher.group("parameters").split(", ");
-                for(int x = 2; x < args.length; x++)
-                    tmp.append(args[x]).append(x < args.length - 1 ? ", " : "");
-                tmp.append(")");
+                if (matcher.find()) {
+                    StringBuilder tmp = new StringBuilder();
+                    tmp.append(newIndent).append(matcher.group("modifiers")).append(simpleName).append("(");
 
-                tmp.append(matcher.group("end"));
-                newLine = tmp.toString();
+                    String[] args = matcher.group("parameters").split(", ");
+                    for(int x = 2; x < args.length; x++)
+                        tmp.append(args[x]).append(x < args.length - 1 ? ", " : "");
+                    tmp.append(")");
 
-                if (args.length <= 2 && newLine.endsWith("}"))
-                    newLine = "";
+                    tmp.append(matcher.group("end"));
+                    newLine = tmp.toString();
+
+                    if (args.length <= 2 && newLine.endsWith("}"))
+                        newLine = "";
+                }
             }
 
-            // find constructor calls...
-            matcher = constructorCall.matcher(line);
-            if (matcher.find())
-            {
-                String body = matcher.group("body");
+            if (enumArgs) {
+                // find constructor calls...
+                matcher = constructorCall.matcher(line);
+                if (matcher.find()) {
+                    String body = matcher.group("body");
 
-                if (body != null && !body.isEmpty())
-                {
-                    String[] args = body.split(", ");
-                    try {
+                    if (body != null && !body.isEmpty()) {
+                        // Remove the first two arguments, which are synthetic name and ordinal
+                        String[] args = body.split(", ");
                         args = Arrays.copyOfRange(args, 2, args.length);
-                    } catch (Throwable t) {
-                        System.currentTimeMillis();
+                        body = String.join(", ", args);
                     }
-                    body = String.join(", ", args);
-                }
 
-                newLine = newIndent + "   " + matcher.group("name") + "(" + body + ")" + matcher.group("end");
+                    newLine = newIndent + "   " + matcher.group("name") + "(" + body + ")" + matcher.group("end");
+                }
             }
 
             if (prevSynthetic) {

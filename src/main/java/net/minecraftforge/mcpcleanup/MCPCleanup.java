@@ -16,7 +16,10 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.zip.ZipEntry;
@@ -27,6 +30,9 @@ import com.github.abrarsyed.jastyle.ASFormatter;
 import com.github.abrarsyed.jastyle.OptParser;
 import com.github.abrarsyed.jastyle.exceptions.MalformedOptionException;
 
+import joptsimple.ValueConversionException;
+import joptsimple.ValueConverter;
+
 public class MCPCleanup {
     private final File input;
     private final File output;
@@ -36,10 +42,51 @@ public class MCPCleanup {
     private boolean filterFML = false;
     private boolean fixParams = false;
     private boolean fernflower = false;
+    private Mode mode = Mode.MODERN;
     private boolean basic = true;
     private boolean gl = true;
     private boolean astyle = true;
     private boolean fml = false;
+    private boolean fmlCases = true;
+    private Patches patches = null;
+
+    public static enum Mode implements ValueConverter<Mode> {
+        // Cleanups used for Minecraft 1.8/old gradle. This does global replacements
+        // instead of looping over every line
+        MC_1_8("1.8"),
+        MODERN("modern"); // Default, no abstract parameters
+
+        private final String key;
+        private Mode(String key) {
+            this.key = key;
+        }
+
+        @Override
+        public Mode convert(String value) {
+            for (Mode m : Mode.class.getEnumConstants()) {
+                if (m.key.equalsIgnoreCase(value))
+                    return m;
+            }
+            throw new ValueConversionException("Unknown Mode: " + value);
+        }
+        @Override
+        public Class<? extends Mode> valueType() {
+            return Mode.class;
+        }
+        @Override
+        public String valuePattern() {
+            EnumSet<Mode> values = EnumSet.allOf(Mode.class);
+            StringBuilder builder = new StringBuilder();
+            builder.append('[');
+            for (Iterator<Mode> i = values.iterator(); i.hasNext(); ) {
+                builder.append(i.next().key);
+                if (i.hasNext())
+                    builder.append(',');
+            }
+            builder.append(']');
+            return builder.toString();
+        }
+    }
 
     public static MCPCleanup create(File input, File output) {
         return new MCPCleanup(input, output);
@@ -99,6 +146,11 @@ public class MCPCleanup {
         return this;
     }
 
+    public MCPCleanup mode(Mode value) {
+        this.mode = value;
+        return this;
+    }
+
     public MCPCleanup basic() {
         return basic(true);
     }
@@ -128,6 +180,22 @@ public class MCPCleanup {
     }
     public MCPCleanup fml(boolean value) {
         this.fml = value;
+        return this;
+    }
+
+    public MCPCleanup fmlCases() {
+        return fml(true);
+    }
+    public MCPCleanup fmlCases(boolean value) {
+        this.fmlCases = value;
+        return this;
+    }
+
+    public MCPCleanup patches(File file) {
+        return patches(file, null, Collections.emptySet());
+    }
+    public MCPCleanup patches(File file, String prefix, Set<String> ignore) {
+        this.patches = new Patches(file, prefix, ignore);
         return this;
     }
 
@@ -162,7 +230,7 @@ public class MCPCleanup {
                if (name.endsWith(".java")) {
                    zoutput.write(processClass(entry.getName(), new String(getBytes(zinput), StandardCharsets.UTF_8)).getBytes());
                } else {
-                   log("Data  " + name);
+                   //log("Data  " + name);
                    copy(zinput, zoutput);
                }
 
@@ -174,36 +242,40 @@ public class MCPCleanup {
     public String processClass(String name, String file) throws IOException {
         log("Processing file: " + name);
         if (fernflower) {
-            log("  fernflower cleanup");
-            file = FFPatcher.processFile(file);
+            debug("  fernflower cleanup");
+            file = FFPatcher.processFile(name, file, true, true);
         } else {
-            log("  new lines");
+            debug("  new lines");
             file = FFPatcher.processSimple(file);
         }
 
+        if (patches != null) {
+            file = patches.apply(name, file);
+        }
+
         if (basic) {
-            log("  processing comments");
+            debug("  processing comments");
             file = BasicCleanups.stripComments(file);
 
-            log("  fixing imports comments");
+            debug("  fixing imports comments");
             file = BasicCleanups.fixImports(file);
 
-            log("  various other cleanup");
+            debug("  various other cleanup");
             file = BasicCleanups.cleanup(file);
         }
 
         if (fixParams) {
-            log("  fixing abstract parameter names");
+            debug("  fixing abstract parameter names");
             file = AbstractParameterRename.fixAbstractParameters(file);
         }
 
         if (gl) {
-            log("  fixing OGL constants");
+            debug("  fixing OGL constants");
             file = oglFixer.fixOGL(file);
         }
 
         if (astyle) {
-            log("  formatting source");
+            debug("  formatting source");
             Reader reader = new StringReader(file);
             Writer writer = new StringWriter();
             formatter.format(reader, writer);
@@ -215,16 +287,18 @@ public class MCPCleanup {
         }
 
         if (fml) {
-            log("  FML transformations");
-            file = FmlCleanup.cleanup(file);
+            debug("  FML transformations");
+            file = FmlCleanup.cleanup(file, fmlCases);
         }
 
         return file;
     }
 
-
     public static void log(String message) {
         System.out.println(message);
+    }
+    public static void debug(String message) {
+        //System.out.println(message);
     }
 
     private byte[] BUFFER = new byte[1024];

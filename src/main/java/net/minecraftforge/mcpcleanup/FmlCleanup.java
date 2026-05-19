@@ -38,9 +38,11 @@ class FmlCleanup {
         }
     };
 
-    public static String cleanup(String text) {
-        text = BEFORE.matcher(text).replaceAll("$1");
-        text = AFTER.matcher(text).replaceAll("$1");
+    public static String cleanup(String text, boolean fixCases) {
+        if (fixCases) {
+            text = BEFORE.matcher(text).replaceAll("$1");
+            text = AFTER.matcher(text).replaceAll("$1");
+        }
         text = FmlCleanup.renameClass(text);
         return text;
     }
@@ -59,9 +61,10 @@ class FmlCleanup {
 
                 boolean invalid = false; // Can't think of a better way to filter out enum declarations, so make sure that all the parameters have types
                 String args = matcher.group("parameters");
-                if (args != null) {
+                if (args != null && !args.isEmpty()) {
                     String[] pts = args.split(",");
                     for (String str : pts) {
+                        str = str.trim();
                         if (str.indexOf(' ') == -1) {
                             invalid = true;
                             break;
