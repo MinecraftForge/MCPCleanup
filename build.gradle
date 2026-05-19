@@ -27,6 +27,7 @@ repositories {
 license {
     header project.file('LICENSE-header.txt')
     include 'net/minecraftforge/mcpcleanup/**/*.java'
+    exclude 'net/minecraftforge/mcpcleanup/ContextualPatch.java'
     newLine false
 }
 
