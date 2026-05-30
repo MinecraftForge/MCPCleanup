@@ -50,27 +50,13 @@ public class FFPatcher {
     }
 
     public static String processFile(String name, String text, boolean enumArgs, boolean enumCtr) {
-        StringBuffer out = new StringBuffer();
-        Matcher m = SYNTHETICS.matcher(text);
-        while(m.find())
-            m.appendReplacement(out, synthetic_replacement(m).replace("$", "\\$"));
-        m.appendTail(out);
-        text = out.toString();
-
+        text = removeSynthetics(text);
         text = replaceAll(text, TRAILING, "");
         text = replaceAll(text, TRAILINGZERO, "$1$2");
         text = processClass(name, text, enumArgs, enumCtr);
         text = replaceAll(text, NEWLINES, NEWLINE);
-        text = replaceAll(text, EMPTY_SUPER, "");
-
-        // fix interfaces (added 1.7.10+)
-        out = new StringBuffer();
-        m = ABSTRACT.matcher(text);
-        while (m.find())
-            m.appendReplacement(out, abstract_replacement(m).replace("$", "\\$"));
-        m.appendTail(out);
-
-        return out.toString();
+        text = replaceAll(text, EMPTY_SUPER, "");;
+        return text;
     }
 
     static String processClass(String name, String text, boolean enumArgs, boolean enumCtr) {
@@ -218,6 +204,16 @@ public class FFPatcher {
         }
     }
 
+
+    private static String removeSynthetics(String text) {
+        StringBuffer out = new StringBuffer();
+        Matcher m = SYNTHETICS.matcher(text);
+        while(m.find())
+            m.appendReplacement(out, synthetic_replacement(m).replace("$", "\\$"));
+        m.appendTail(out);
+        return out.toString();
+    }
+
     private static String synthetic_replacement(Matcher match) {
         //This is designed to remove all the synthetic/bridge methods that the compiler will just generate again
         //First off this only works on methods that bounce to methods that are named exactly alike.
@@ -249,6 +245,30 @@ public class FFPatcher {
             return "";
 
         return match.group();
+    }
+
+    // Replace parameter names with srg names in abstract methods
+    public static String renameAbstracts(String name, String text) {
+        // fix interfaces (added 1.7.10+)
+        List<String> lines = NewLineDetector.readLines(text);
+        for (int x = 0; x < lines.size(); x++) {
+            String line = lines.get(x);
+            // Quick optimization we only care about abstract methods, which always end with ;
+            if (!line.endsWith(";"))
+                continue;
+
+            Matcher m = ABSTRACT.matcher(line);
+            if (m.find()) {
+                StringBuffer out = new StringBuffer();
+                do {
+                    m.appendReplacement(out, abstract_replacement(m).replace("$", "\\$"));
+                } while (m.find());
+                m.appendTail(out);
+                lines.set(x, out.toString());
+            }
+
+        }
+        return String.join(NEWLINE, lines);
     }
 
     private static String abstract_replacement(Matcher match) {

@@ -31,23 +31,18 @@ class FmlCleanup {
     private static final Pattern BEFORE = Pattern.compile("(?m)((case|default).+(?:\\r\\n|\\r|\\n))(?:\\r\\n|\\r|\\n)");
     private static final Pattern AFTER  = Pattern.compile("(?m)(?:\\r\\n|\\r|\\n)((?:\\r\\n|\\r|\\n)[ \\t]+(case|default))");
 
-    private static final Comparator<String> COMPARATOR = new Comparator<String>() {
-        @Override
-        public int compare(String str1, String str2) {
-            return str2.length() - str1.length();
-        }
-    };
+    private static final Comparator<String> COMPARATOR = (str1, str2) -> str2.length() - str1.length();
 
-    public static String cleanup(String text, boolean fixCases) {
+    public static String cleanup(String name, String text, boolean fixCases) {
         if (fixCases) {
             text = BEFORE.matcher(text).replaceAll("$1");
             text = AFTER.matcher(text).replaceAll("$1");
         }
-        text = FmlCleanup.renameClass(text);
+        text = FmlCleanup.renameClass(name, text);
         return text;
     }
 
-    private static String renameClass(String text) {
+    private static String renameClass(String name, String text) {
         String[] lines = text.split("(\r\n|\r|\n)");
         List<String> output = new ArrayList<String>(lines.length);
         MethodInfo method = null;

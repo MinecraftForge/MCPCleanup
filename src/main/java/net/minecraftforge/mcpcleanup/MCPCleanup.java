@@ -46,11 +46,14 @@ public class MCPCleanup {
     private boolean basic = true;
     private boolean gl = true;
     private boolean astyle = true;
-    private boolean fml = false;
+    private int fml = 0;
     private boolean fmlCases = true;
     private Patches patches = null;
 
+    private boolean fernflower_abstract = true;
+
     public static enum Mode implements ValueConverter<Mode> {
+        MC_1_7_2("1.7.2"),
         // Cleanups used for Minecraft 1.8/old gradle. This does global replacements
         // instead of looping over every line
         MC_1_8("1.8"),
@@ -179,6 +182,9 @@ public class MCPCleanup {
         return fml(true);
     }
     public MCPCleanup fml(boolean value) {
+        return fml(20);
+    }
+    public MCPCleanup fml(int value) {
         this.fml = value;
         return this;
     }
@@ -199,7 +205,26 @@ public class MCPCleanup {
         return this;
     }
 
+    private void setupMode() {
+        if (mode == null)
+            return;
+        switch (this.mode) {
+            case MC_1_7_2:
+                this.fernflower = true;
+                this.fernflower_abstract = false;
+                this.basic = true;
+                this.gl = true;
+                this.fml = 20;
+                this.astyle = true;
+                break;
+            default:
+                break;
+        }
+    }
+
     public void process() throws IOException {
+        setupMode();
+
         TimeZone.setDefault(TimeZone.getTimeZone("GMT")); //Fix Java stupidity that causes timestamps in zips to depend on user's timezone!
         if (output.exists() && !output.delete())
             throw new IOException("Could not delete file: " + output);
@@ -244,6 +269,8 @@ public class MCPCleanup {
         if (fernflower) {
             debug("  fernflower cleanup");
             file = FFPatcher.processFile(name, file, true, true);
+            if (fernflower_abstract)
+                file = FFPatcher.renameAbstracts(name, file);
         } else {
             debug("  new lines");
             file = FFPatcher.processSimple(file);
@@ -286,9 +313,12 @@ public class MCPCleanup {
             file = writer.toString();
         }
 
-        if (fml) {
+        if (fml == 10) {
             debug("  FML transformations");
-            file = FmlCleanup.cleanup(file, fmlCases);
+            file = FmlCleanup1.cleanup(file);
+        } else if (fml == 20) {
+            debug("  FML transformations");
+            file = FmlCleanup.cleanup(name, file, fmlCases);
         }
 
         return file;
