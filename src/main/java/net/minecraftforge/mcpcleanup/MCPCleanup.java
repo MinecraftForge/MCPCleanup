@@ -183,7 +183,7 @@ public class MCPCleanup {
         return fml(true);
     }
     public MCPCleanup fml(boolean value) {
-        return fml(20);
+        return fml(value ? 20 : 0);
     }
     public MCPCleanup fml(int value) {
         this.fml = value;
