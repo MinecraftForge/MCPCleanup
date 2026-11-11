@@ -211,6 +211,14 @@ public class MCPCleanup {
         if (mode == null)
             return;
         switch (this.mode) {
+            case MC_1_4_7:
+                this.fernflower = true;
+                this.fernflower_abstract = false;
+                this.basic = true;
+                this.gl = true;
+                this.fml = 0;
+                this.astyle = true;
+                break;
             case MC_1_6_4:
                 this.fernflower = true;
                 this.fernflower_abstract = false;
@@ -225,14 +233,6 @@ public class MCPCleanup {
                 this.basic = true;
                 this.gl = true;
                 this.fml = 20;
-                this.astyle = true;
-                break;
-            case MC_1_4_7:
-                this.fernflower = true;
-                this.fernflower_abstract = false;
-                this.basic = true;
-                this.gl = true;
-                this.fml = 0;
                 this.astyle = true;
                 break;
             default:
