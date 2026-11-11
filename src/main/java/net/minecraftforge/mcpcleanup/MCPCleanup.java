@@ -53,6 +53,7 @@ public class MCPCleanup {
     private boolean fernflower_abstract = true;
 
     public static enum Mode implements ValueConverter<Mode> {
+        MC_1_4_7("1.4.7"),
         MC_1_6_4("1.6.4"),
         MC_1_7_2("1.7.2"),
         // Cleanups used for Minecraft 1.8/old gradle. This does global replacements
@@ -210,6 +211,14 @@ public class MCPCleanup {
         if (mode == null)
             return;
         switch (this.mode) {
+            case MC_1_4_7:
+                this.fernflower = true;
+                this.fernflower_abstract = false;
+                this.basic = true;
+                this.gl = true;
+                this.fml = 0;
+                this.astyle = true;
+                break;
             case MC_1_6_4:
                 this.fernflower = true;
                 this.fernflower_abstract = false;
